@@ -305,7 +305,7 @@ export default function TournamentManager() {
                     team={bracket.semifinals[0].team1}
                     onClick={() => selectSemifinalWinner('sf1', bracket.semifinals[0].team1)}
                     isWinner={bracket.semifinals[0].winner === bracket.semifinals[0].team1}
-                    disabled={bracket.semifinals[0].winner !== null && bracket.semifinals[0].winner !== bracket.semifinals[0].team1}
+                    //disabled={bracket.semifinals[0].winner !== null && bracket.semifinals[0].winner !== bracket.semifinals[0].team1}
                   />
                 )}
                 <div className="text-center text-gray-400 text-xs font-bold">VS</div>
@@ -314,7 +314,7 @@ export default function TournamentManager() {
                     team={bracket.semifinals[0].team2}
                     onClick={() => selectSemifinalWinner('sf1', bracket.semifinals[0].team2)}
                     isWinner={bracket.semifinals[0].winner === bracket.semifinals[0].team2}
-                    disabled={bracket.semifinals[0].winner !== null && bracket.semifinals[0].winner !== bracket.semifinals[0].team2}
+                    //isabled={bracket.semifinals[0].winner !== null && bracket.semifinals[0].winner !== bracket.semifinals[0].team2}
                   />
                 )}
               </div>
@@ -326,7 +326,7 @@ export default function TournamentManager() {
                     team={bracket.semifinals[1].team1}
                     onClick={() => selectSemifinalWinner('sf2', bracket.semifinals[1].team1)}
                     isWinner={bracket.semifinals[1].winner === bracket.semifinals[1].team1}
-                    disabled={bracket.semifinals[1].winner !== null && bracket.semifinals[1].winner !== bracket.semifinals[1].team1}
+                    //disabled={bracket.semifinals[1].winner !== null && bracket.semifinals[1].winner !== bracket.semifinals[1].team1}
                   />
                 )}
                 <div className="text-center text-gray-400 text-xs font-bold">VS</div>
@@ -335,7 +335,7 @@ export default function TournamentManager() {
                     team={bracket.semifinals[1].team2}
                     onClick={() => selectSemifinalWinner('sf2', bracket.semifinals[1].team2)}
                     isWinner={bracket.semifinals[1].winner === bracket.semifinals[1].team2}
-                    disabled={bracket.semifinals[1].winner !== null && bracket.semifinals[1].winner !== bracket.semifinals[1].team2}
+                    //disabled={bracket.semifinals[1].winner !== null && bracket.semifinals[1].winner !== bracket.semifinals[1].team2}
                   />
                 )}
               </div>
