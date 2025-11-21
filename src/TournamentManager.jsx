@@ -2,11 +2,18 @@ import React, { useState } from 'react';
 import { Shuffle, Trophy, Users } from 'lucide-react';
 
 export default function TournamentManager() {
-  const [view, setView] = useState('setup');
-  const [teams, setTeams] = useState(Array(8).fill('').map((_, i) => ({ name: '', players: ['', ''] })));
+  const [view, setView] = useState('config'); // 'config' -> 'setup' -> 'draw' -> 'bracket'
+  const [teamCount, setTeamCount] = useState(8); // 4 o 8 squadre
+  const [teams, setTeams] = useState([]);
   const [groups, setGroups] = useState({ A: [], B: [] });
   const [matches, setMatches] = useState([]);
   const [bracket, setBracket] = useState(null);
+
+  const initTeams = (count) => {
+    setTeamCount(count);
+    setTeams(Array(count).fill('').map(() => ({ name: '', players: ['', ''] })));
+    setView('setup');
+  };
 
   const handleTeamChange = (index, field, value, playerIndex = null) => {
     const newTeams = [...teams];
@@ -20,23 +27,38 @@ export default function TournamentManager() {
 
   const shuffleTeams = () => {
     const shuffled = [...teams].sort(() => Math.random() - 0.5);
-    const groupA = shuffled.slice(0, 4);
-    const groupB = shuffled.slice(4, 8);
-    
-    setGroups({ A: groupA, B: groupB });
-    
-    const matchesA = [
-      { id: 1, group: 'A', team1: groupA[0], team2: groupA[1], winner: null },
-      { id: 2, group: 'A', team1: groupA[2], team2: groupA[3], winner: null }
-    ];
-    
-    const matchesB = [
-      { id: 3, group: 'B', team1: groupB[0], team2: groupB[1], winner: null },
-      { id: 4, group: 'B', team1: groupB[2], team2: groupB[3], winner: null }
-    ];
-    
-    setMatches([...matchesA, ...matchesB]);
-    
+
+    if (teamCount === 4) {
+      // 4 squadre: 1 solo girone
+      const groupA = shuffled;
+      setGroups({ A: groupA, B: [] });
+
+      const matchesA = [
+        { id: 1, group: 'A', team1: groupA[0], team2: groupA[1], winner: null },
+        { id: 2, group: 'A', team1: groupA[2], team2: groupA[3], winner: null }
+      ];
+
+      setMatches(matchesA);
+    } else {
+      // 8 squadre: 2 gironi
+      const groupA = shuffled.slice(0, 4);
+      const groupB = shuffled.slice(4, 8);
+
+      setGroups({ A: groupA, B: groupB });
+
+      const matchesA = [
+        { id: 1, group: 'A', team1: groupA[0], team2: groupA[1], winner: null },
+        { id: 2, group: 'A', team1: groupA[2], team2: groupA[3], winner: null }
+      ];
+
+      const matchesB = [
+        { id: 3, group: 'B', team1: groupB[0], team2: groupB[1], winner: null },
+        { id: 4, group: 'B', team1: groupB[2], team2: groupB[3], winner: null }
+      ];
+
+      setMatches([...matchesA, ...matchesB]);
+    }
+
     setBracket({
       semifinals: [
         { id: 'sf1', team1: null, team2: null, winner: null, loser: null },
@@ -45,7 +67,7 @@ export default function TournamentManager() {
       final: { id: 'f', team1: null, team2: null, winner: null },
       thirdPlace: { id: 'tp', team1: null, team2: null, winner: null }
     });
-    
+
     setView('draw');
   };
 
@@ -54,21 +76,40 @@ export default function TournamentManager() {
   };
 
   const selectWinner = (matchId, team) => {
-    const newMatches = matches.map(m => 
+    const newMatches = matches.map(m =>
       m.id === matchId ? { ...m, winner: team } : m
     );
     setMatches(newMatches);
-    
+
     const groupAWinners = newMatches.filter(m => m.group === 'A' && m.winner).map(m => m.winner);
     const groupBWinners = newMatches.filter(m => m.group === 'B' && m.winner).map(m => m.winner);
-    
-    if (groupAWinners.length === 2 && groupBWinners.length === 2) {
-      const newBracket = { ...bracket };
-      newBracket.semifinals[0].team1 = groupAWinners[0];
-      newBracket.semifinals[0].team2 = groupBWinners[1];
-      newBracket.semifinals[1].team1 = groupBWinners[0];
-      newBracket.semifinals[1].team2 = groupAWinners[1];
-      setBracket(newBracket);
+
+    if (teamCount === 4) {
+      // 4 squadre: i 2 vincitori del girone vanno direttamente in semifinale
+      if (groupAWinners.length === 2) {
+        const newBracket = { ...bracket };
+        newBracket.semifinals[0].team1 = groupAWinners[0];
+        newBracket.semifinals[0].team2 = groupAWinners[1];
+
+        // Imposta subito i perdenti del girone per la finale 3°-4° posto
+        const groupALosers = newMatches.filter(m => m.group === 'A').map(m => {
+          return m.winner === m.team1 ? m.team2 : m.team1;
+        });
+        newBracket.thirdPlace.team1 = groupALosers[0];
+        newBracket.thirdPlace.team2 = groupALosers[1];
+
+        setBracket(newBracket);
+      }
+    } else {
+      // 8 squadre: logica esistente
+      if (groupAWinners.length === 2 && groupBWinners.length === 2) {
+        const newBracket = { ...bracket };
+        newBracket.semifinals[0].team1 = groupAWinners[0];
+        newBracket.semifinals[0].team2 = groupBWinners[1];
+        newBracket.semifinals[1].team1 = groupBWinners[0];
+        newBracket.semifinals[1].team2 = groupAWinners[1];
+        setBracket(newBracket);
+      }
     }
   };
 
@@ -102,6 +143,15 @@ export default function TournamentManager() {
     setBracket(newBracket);
   };
 
+  // Per 4 squadre: seleziona vincitore dalla "semifinale" che è in realtà la finale
+  const selectFinalWinner4Teams = (team) => {
+    const newBracket = { ...bracket };
+    const sf = newBracket.semifinals[0];
+    newBracket.final.winner = team;
+    newBracket.final.loser = team === sf.team1 ? sf.team2 : sf.team1;
+    setBracket(newBracket);
+  };
+
   const selectThirdPlaceWinner = (team) => {
     const newBracket = { ...bracket };
     newBracket.thirdPlace.winner = team;
@@ -126,6 +176,52 @@ export default function TournamentManager() {
       <div className="text-xs text-blue-200">{team.players.join(', ')}</div>
     </button>
   );
+
+  if (view === 'config') {
+    return (
+      <div className="min-h-screen p-8 relative" style={{backgroundColor: '#1b353e'}}>
+        <div className="max-w-2xl mx-auto relative z-10">
+          <div className="flex justify-center mb-6">
+            <div className="h-16 w-48 bg-contain bg-center bg-no-repeat" style={{backgroundImage: 'url(https://www.dibix.it/wp-content/uploads/2022/09/logo-dibix.png)'}}></div>
+          </div>
+          <div className="rounded-xl shadow-2xl p-8 border border-slate-700" style={{backgroundColor: '#ffffff14'}}>
+            <div style={{marginTop: '100px'}} className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+              <img src="https://www.dibix.it/wp-content/uploads/2025/10/sfondo_champion.png" alt="Champions League" className="max-w-2xl" />
+            </div>
+
+            <div className="flex items-center gap-3 mb-6">
+              <Users className="w-8 h-8 text-blue-400" />
+              <h1 className="text-3xl font-bold text-white">Configura Torneo</h1>
+            </div>
+
+            <p className="text-blue-200 mb-6">Seleziona il numero di squadre partecipanti:</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => initTeams(4)}
+                className="p-6 rounded-lg border-2 border-slate-500 hover:border-blue-400 hover:shadow hover:shadow-blue-500/50 transition-all"
+                style={{backgroundColor: '#1b353e'}}
+              >
+                <div className="text-4xl font-bold text-white mb-2">4</div>
+                <div className="text-blue-300">Squadre</div>
+                <div className="text-sm text-slate-400 mt-2">1 Girone</div>
+              </button>
+
+              <button
+                onClick={() => initTeams(8)}
+                className="p-6 rounded-lg border-2 border-slate-500 hover:border-blue-400 hover:shadow hover:shadow-blue-500/50 transition-all"
+                style={{backgroundColor: '#1b353e'}}
+              >
+                <div className="text-4xl font-bold text-white mb-2">8</div>
+                <div className="text-blue-300">Squadre</div>
+                <div className="text-sm text-slate-400 mt-2">2 Gironi</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (view === 'setup') {
     return (
@@ -209,11 +305,15 @@ export default function TournamentManager() {
             <div style={{marginTop: '100px'}} className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
               <img src="https://www.dibix.it/wp-content/uploads/2025/10/sfondo_champion.png" alt="Champions League" className="max-w-2xl" />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-8 text-center">Sorteggio Gironi</h1>
-            
-            <div className="grid md:grid-cols-2 gap-8 mb-8 relative z-10">
+            <h1 className="text-3xl font-bold text-white mb-8 text-center">
+              {teamCount === 4 ? 'Sorteggio Girone' : 'Sorteggio Gironi'}
+            </h1>
+
+            <div className={`grid ${teamCount === 8 ? 'md:grid-cols-2' : 'md:grid-cols-1 max-w-lg mx-auto'} gap-8 mb-8 relative z-10`}>
               <div>
-                <h2 className="text-2xl font-bold text-blue-400 mb-4 text-center">Girone A</h2>
+                <h2 className="text-2xl font-bold text-blue-400 mb-4 text-center">
+                  {teamCount === 4 ? 'Girone Unico' : 'Girone A'}
+                </h2>
                 <div className="space-y-4">
                   {matches.filter(m => m.group === 'A').map(match => (
                     <div key={match.id} className="rounded-lg p-4 border-2 border-slate-600" style={{backgroundColor: '#1b353e'}}>
@@ -221,14 +321,14 @@ export default function TournamentManager() {
                         Partita {match.id}
                       </div>
                       <div className="space-y-2">
-                        <TeamCard 
-                          team={match.team1} 
+                        <TeamCard
+                          team={match.team1}
                           onClick={() => selectWinner(match.id, match.team1)}
                           isWinner={match.winner === match.team1}
                         />
                         <div className="text-center text-gray-400 text-sm font-bold">VS</div>
-                        <TeamCard 
-                          team={match.team2} 
+                        <TeamCard
+                          team={match.team2}
                           onClick={() => selectWinner(match.id, match.team2)}
                           isWinner={match.winner === match.team2}
                         />
@@ -237,32 +337,34 @@ export default function TournamentManager() {
                   ))}
                 </div>
               </div>
-              
-              <div>
-                <h2 className="text-2xl font-bold text-blue-400 mb-4 text-center">Girone B</h2>
-                <div className="space-y-4">
-                  {matches.filter(m => m.group === 'B').map(match => (
-                    <div key={match.id} className="bg-slate-700/50 rounded-lg p-4 border-2 border-slate-600">
-                      <div className="text-center text-sm font-semibold text-blue-300 mb-3">
-                        Partita {match.id}
+
+              {teamCount === 8 && (
+                <div>
+                  <h2 className="text-2xl font-bold text-blue-400 mb-4 text-center">Girone B</h2>
+                  <div className="space-y-4">
+                    {matches.filter(m => m.group === 'B').map(match => (
+                      <div key={match.id} className="bg-slate-700/50 rounded-lg p-4 border-2 border-slate-600">
+                        <div className="text-center text-sm font-semibold text-blue-300 mb-3">
+                          Partita {match.id}
+                        </div>
+                        <div className="space-y-2">
+                          <TeamCard
+                            team={match.team1}
+                            onClick={() => selectWinner(match.id, match.team1)}
+                            isWinner={match.winner === match.team1}
+                          />
+                          <div className="text-center text-gray-400 text-sm font-bold">VS</div>
+                          <TeamCard
+                            team={match.team2}
+                            onClick={() => selectWinner(match.id, match.team2)}
+                            isWinner={match.winner === match.team2}
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <TeamCard 
-                          team={match.team1} 
-                          onClick={() => selectWinner(match.id, match.team1)}
-                          isWinner={match.winner === match.team1}
-                        />
-                        <div className="text-center text-gray-400 text-sm font-bold">VS</div>
-                        <TeamCard 
-                          team={match.team2} 
-                          onClick={() => selectWinner(match.id, match.team2)}
-                          isWinner={match.winner === match.team2}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             
             <button
@@ -293,63 +395,14 @@ export default function TournamentManager() {
             <img src="https://www.dibix.it/wp-content/uploads/2025/10/sfondo_champion.png" alt="Champions League" className="max-w-2xl" />
           </div>
           <h1 className="text-3xl font-bold text-white mb-8 text-center relative z-10">Tabellone Finale</h1>
-          {/* <div style={{backgroundColor: 'white'}} className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-            <img src="https://www.dibix.it/wp-content/uploads/2025/10/sfondo_champion.png" alt="Champions League" className="max-w-2xl" />
-          </div> */}
-          <div className="flex items-center justify-between gap-8 relative z-10">
-            <div className="flex-1 space-y-32">
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-blue-300 mb-2">SEMIFINALE 1</div>
-                {bracket.semifinals[0].team1 && (
-                  <TeamCard 
-                    team={bracket.semifinals[0].team1}
-                    onClick={() => selectSemifinalWinner('sf1', bracket.semifinals[0].team1)}
-                    isWinner={bracket.semifinals[0].winner === bracket.semifinals[0].team1}
-                    //disabled={bracket.semifinals[0].winner !== null && bracket.semifinals[0].winner !== bracket.semifinals[0].team1}
-                  />
-                )}
-                <div className="text-center text-gray-400 text-xs font-bold">VS</div>
-                {bracket.semifinals[0].team2 && (
-                  <TeamCard 
-                    team={bracket.semifinals[0].team2}
-                    onClick={() => selectSemifinalWinner('sf1', bracket.semifinals[0].team2)}
-                    isWinner={bracket.semifinals[0].winner === bracket.semifinals[0].team2}
-                    //isabled={bracket.semifinals[0].winner !== null && bracket.semifinals[0].winner !== bracket.semifinals[0].team2}
-                  />
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-blue-300 mb-2">SEMIFINALE 2</div>
-                {bracket.semifinals[1].team1 && (
-                  <TeamCard 
-                    team={bracket.semifinals[1].team1}
-                    onClick={() => selectSemifinalWinner('sf2', bracket.semifinals[1].team1)}
-                    isWinner={bracket.semifinals[1].winner === bracket.semifinals[1].team1}
-                    //disabled={bracket.semifinals[1].winner !== null && bracket.semifinals[1].winner !== bracket.semifinals[1].team1}
-                  />
-                )}
-                <div className="text-center text-gray-400 text-xs font-bold">VS</div>
-                {bracket.semifinals[1].team2 && (
-                  <TeamCard 
-                    team={bracket.semifinals[1].team2}
-                    onClick={() => selectSemifinalWinner('sf2', bracket.semifinals[1].team2)}
-                    isWinner={bracket.semifinals[1].winner === bracket.semifinals[1].team2}
-                    //disabled={bracket.semifinals[1].winner !== null && bracket.semifinals[1].winner !== bracket.semifinals[1].team2}
-                  />
-                )}
-              </div>
-            </div>
-            
-            <div className="flex items-center">
-              <div className="w-24 border-t-2 border-slate-500"></div>
-            </div>
-            
-            <div className="flex-1 space-y-12">
+
+          {teamCount === 4 ? (
+            // Layout per 4 squadre: solo finale diretta (i vincitori del girone)
+            <div className="max-w-lg mx-auto relative z-10 space-y-8">
               <div className="w-full">
                 <div className="bg-yellow-600/30 border-4 border-yellow-500 rounded-lg p-6 backdrop-blur-sm">
                   {bracket.final.winner ? (
-                    <div class="final-box">
+                    <div className="final-box">
                       <div className="text-center">
                         <Trophy className="w-12 h-12 text-yellow-400 mx-auto mb-3" />
                         <div className="text-xl font-bold text-white">{bracket.final.winner.name}</div>
@@ -360,23 +413,21 @@ export default function TournamentManager() {
                   ) : (
                     <div className="space-y-2">
                       <div className="text-xs font-semibold text-blue-300 mb-2 text-center">FINALE 1° - 2° POSTO</div>
-                      {bracket.final.team1 && (
-                        <TeamCard 
-                          team={bracket.final.team1}
-                          onClick={() => selectFinalWinner(bracket.final.team1)}
+                      {bracket.semifinals[0].team1 && (
+                        <TeamCard
+                          team={bracket.semifinals[0].team1}
+                          onClick={() => selectFinalWinner4Teams(bracket.semifinals[0].team1)}
                           isWinner={false}
-                          disabled={!bracket.final.team2}
                         />
                       )}
-                      {bracket.final.team1 && bracket.final.team2 && (
+                      {bracket.semifinals[0].team1 && bracket.semifinals[0].team2 && (
                         <div className="text-center text-gray-400 text-xs font-bold">VS</div>
                       )}
-                      {bracket.final.team2 && (
-                        <TeamCard 
-                          team={bracket.final.team2}
-                          onClick={() => selectFinalWinner(bracket.final.team2)}
+                      {bracket.semifinals[0].team2 && (
+                        <TeamCard
+                          team={bracket.semifinals[0].team2}
+                          onClick={() => selectFinalWinner4Teams(bracket.semifinals[0].team2)}
                           isWinner={false}
-                          disabled={!bracket.final.team1}
                         />
                       )}
                     </div>
@@ -384,10 +435,10 @@ export default function TournamentManager() {
                 </div>
               </div>
 
-              {bracket.final.loser ? (
-              <div className="w-full">
-                <div className="bg-silver-600/30 border-4 border-silver-500 rounded-lg p-6 backdrop-blur-sm">
-                    <div class="final-box">
+              {bracket.final.loser && (
+                <div className="w-full">
+                  <div className="bg-silver-600/30 border-4 border-silver-500 rounded-lg p-6 backdrop-blur-sm">
+                    <div className="final-box">
                       <div className="text-center">
                         <Trophy className="w-12 h-12 text-white mx-auto mb-3" />
                         <div className="text-xl font-bold text-white">{bracket.final.loser.name}</div>
@@ -395,27 +446,26 @@ export default function TournamentManager() {
                         <div className="mt-3 text-white font-bold text-lg">🥈 2° POSTO</div>
                       </div>
                     </div>
+                  </div>
                 </div>
-              </div> 
-              ) : (
-                <span></span>
               )}
 
-              <div className="w-full">
-                <div className="bg-orange-600/30 border-4 border-orange-500 rounded-lg p-6 backdrop-blur-sm">
-                  {bracket.thirdPlace.winner ? (
-                    <div className="text-center">
-                      <Trophy className="w-10 h-10 text-orange-400 mx-auto mb-3" />
-                      <div className="text-lg font-bold text-white">{bracket.thirdPlace.winner.name}</div>
-                      <div className="text-xs text-blue-200">{bracket.thirdPlace.winner.players.join(', ')}</div>
-                      <div className="mt-2 text-orange-400 font-bold">🥉 3° POSTO</div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="text-xs font-semibold text-blue-300 mb-2 text-center">FINALE 3° - 4° POSTO</div>
+              {/* Finale 3°-4° posto per 4 squadre - visibile subito */}
+              {bracket.thirdPlace.team1 && bracket.thirdPlace.team2 && (
+                <div className="w-full">
+                  <div className="bg-orange-600/30 border-4 border-orange-500 rounded-lg p-6 backdrop-blur-sm">
+                    {bracket.thirdPlace.winner ? (
+                      <div className="text-center">
+                        <Trophy className="w-10 h-10 text-orange-400 mx-auto mb-3" />
+                        <div className="text-lg font-bold text-white">{bracket.thirdPlace.winner.name}</div>
+                        <div className="text-xs text-blue-200">{bracket.thirdPlace.winner.players.join(', ')}</div>
+                        <div className="mt-2 text-orange-400 font-bold">🥉 3° POSTO</div>
+                      </div>
+                    ) : (
                       <div className="space-y-2">
+                        <div className="text-xs font-semibold text-blue-300 mb-2 text-center">FINALE 3° - 4° POSTO</div>
                         {bracket.thirdPlace.team1 && (
-                          <TeamCard 
+                          <TeamCard
                             team={bracket.thirdPlace.team1}
                             onClick={() => selectThirdPlaceWinner(bracket.thirdPlace.team1)}
                             isWinner={false}
@@ -426,7 +476,7 @@ export default function TournamentManager() {
                           <div className="text-center text-gray-400 text-xs font-bold">VS</div>
                         )}
                         {bracket.thirdPlace.team2 && (
-                          <TeamCard 
+                          <TeamCard
                             team={bracket.thirdPlace.team2}
                             onClick={() => selectThirdPlaceWinner(bracket.thirdPlace.team2)}
                             isWinner={false}
@@ -434,12 +484,154 @@ export default function TournamentManager() {
                           />
                         )}
                       </div>
-                    </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Layout per 8 squadre: semifinali + finale + 3° posto
+            <div className="flex items-center justify-between gap-8 relative z-10">
+              <div className="flex-1 space-y-32">
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-blue-300 mb-2">SEMIFINALE 1</div>
+                  {bracket.semifinals[0].team1 && (
+                    <TeamCard
+                      team={bracket.semifinals[0].team1}
+                      onClick={() => selectSemifinalWinner('sf1', bracket.semifinals[0].team1)}
+                      isWinner={bracket.semifinals[0].winner === bracket.semifinals[0].team1}
+                    />
+                  )}
+                  <div className="text-center text-gray-400 text-xs font-bold">VS</div>
+                  {bracket.semifinals[0].team2 && (
+                    <TeamCard
+                      team={bracket.semifinals[0].team2}
+                      onClick={() => selectSemifinalWinner('sf1', bracket.semifinals[0].team2)}
+                      isWinner={bracket.semifinals[0].winner === bracket.semifinals[0].team2}
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-blue-300 mb-2">SEMIFINALE 2</div>
+                  {bracket.semifinals[1].team1 && (
+                    <TeamCard
+                      team={bracket.semifinals[1].team1}
+                      onClick={() => selectSemifinalWinner('sf2', bracket.semifinals[1].team1)}
+                      isWinner={bracket.semifinals[1].winner === bracket.semifinals[1].team1}
+                    />
+                  )}
+                  <div className="text-center text-gray-400 text-xs font-bold">VS</div>
+                  {bracket.semifinals[1].team2 && (
+                    <TeamCard
+                      team={bracket.semifinals[1].team2}
+                      onClick={() => selectSemifinalWinner('sf2', bracket.semifinals[1].team2)}
+                      isWinner={bracket.semifinals[1].winner === bracket.semifinals[1].team2}
+                    />
                   )}
                 </div>
               </div>
+
+              <div className="flex items-center">
+                <div className="w-24 border-t-2 border-slate-500"></div>
+              </div>
+
+              <div className="flex-1 space-y-12">
+                <div className="w-full">
+                  <div className="bg-yellow-600/30 border-4 border-yellow-500 rounded-lg p-6 backdrop-blur-sm">
+                    {bracket.final.winner ? (
+                      <div className="final-box">
+                        <div className="text-center">
+                          <Trophy className="w-12 h-12 text-yellow-400 mx-auto mb-3" />
+                          <div className="text-xl font-bold text-white">{bracket.final.winner.name}</div>
+                          <div className="text-sm text-blue-200">{bracket.final.winner.players.join(', ')}</div>
+                          <div className="mt-3 text-yellow-400 font-bold text-lg">💪🎊  🥇 1° POSTO   🎊💪</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-blue-300 mb-2 text-center">FINALE 1° - 2° POSTO</div>
+                        {bracket.final.team1 && (
+                          <TeamCard
+                            team={bracket.final.team1}
+                            onClick={() => selectFinalWinner(bracket.final.team1)}
+                            isWinner={false}
+                            disabled={!bracket.final.team2}
+                          />
+                        )}
+                        {bracket.final.team1 && bracket.final.team2 && (
+                          <div className="text-center text-gray-400 text-xs font-bold">VS</div>
+                        )}
+                        {bracket.final.team2 && (
+                          <TeamCard
+                            team={bracket.final.team2}
+                            onClick={() => selectFinalWinner(bracket.final.team2)}
+                            isWinner={false}
+                            disabled={!bracket.final.team1}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {bracket.final.loser ? (
+                  <div className="w-full">
+                    <div className="bg-silver-600/30 border-4 border-silver-500 rounded-lg p-6 backdrop-blur-sm">
+                      <div className="final-box">
+                        <div className="text-center">
+                          <Trophy className="w-12 h-12 text-white mx-auto mb-3" />
+                          <div className="text-xl font-bold text-white">{bracket.final.loser.name}</div>
+                          <div className="text-sm text-blue-200">{bracket.final.loser.players.join(', ')}</div>
+                          <div className="mt-3 text-white font-bold text-lg">🥈 2° POSTO</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <span></span>
+                )}
+
+                <div className="w-full">
+                  <div className="bg-orange-600/30 border-4 border-orange-500 rounded-lg p-6 backdrop-blur-sm">
+                    {bracket.thirdPlace.winner ? (
+                      <div className="text-center">
+                        <Trophy className="w-10 h-10 text-orange-400 mx-auto mb-3" />
+                        <div className="text-lg font-bold text-white">{bracket.thirdPlace.winner.name}</div>
+                        <div className="text-xs text-blue-200">{bracket.thirdPlace.winner.players.join(', ')}</div>
+                        <div className="mt-2 text-orange-400 font-bold">🥉 3° POSTO</div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-blue-300 mb-2 text-center">FINALE 3° - 4° POSTO</div>
+                        <div className="space-y-2">
+                          {bracket.thirdPlace.team1 && (
+                            <TeamCard
+                              team={bracket.thirdPlace.team1}
+                              onClick={() => selectThirdPlaceWinner(bracket.thirdPlace.team1)}
+                              isWinner={false}
+                              disabled={!bracket.thirdPlace.team2}
+                            />
+                          )}
+                          {bracket.thirdPlace.team1 && bracket.thirdPlace.team2 && (
+                            <div className="text-center text-gray-400 text-xs font-bold">VS</div>
+                          )}
+                          {bracket.thirdPlace.team2 && (
+                            <TeamCard
+                              team={bracket.thirdPlace.team2}
+                              onClick={() => selectThirdPlaceWinner(bracket.thirdPlace.team2)}
+                              isWinner={false}
+                              disabled={!bracket.thirdPlace.team1}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
